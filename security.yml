@@ -1,0 +1,60 @@
+name: Security Lab
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+# Least Privilege auch hier: Der Workflow darf standardmaessig nur lesen.
+permissions:
+  contents: read
+
+jobs:
+  # --- 1. Dockerfile auf schlechte Praktiken pruefen ---
+  lint-dockerfile:
+    name: Dockerfile linten (Hadolint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+
+  # --- 2. Image bauen und auf bekannte Schwachstellen scannen ---
+  build-and-scan:
+    name: Image bauen & auf CVEs scannen (Trivy)
+    runs-on: ubuntu-latest
+    needs: lint-dockerfile          # laeuft erst, wenn das Linting sauber ist
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Image bauen
+        run: docker build -t security-lab:${{ github.sha }} .
+
+      - name: Trivy-Schwachstellenscan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: security-lab:${{ github.sha }}
+          format: table
+          severity: CRITICAL,HIGH
+          # exit-code: 0 = nur berichten (gut zum Lernen).
+          # Auf 1 stellen, sobald du willst, dass der Build bei
+          # kritischen Funden hart abbricht.
+          exit-code: '0'
+
+  # --- 3. Linux-Prinzipien live im Log sichtbar machen ---
+  demonstrate:
+    name: Theorie live zeigen
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Wer bin ich auf dem Runner?
+        run: id
+      - name: Image bauen
+        run: docker build -t demo .
+      - name: Beweis – Container laeuft als Nicht-root
+        run: |
+          echo "Erwartet: uid=10001(appuser)"
+          docker run --rm demo id

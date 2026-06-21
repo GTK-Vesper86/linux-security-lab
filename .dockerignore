@@ -1,0 +1,12 @@
+# Was hier steht, landet NICHT im Build-Kontext des Images.
+# Wichtig aus Sicherheitssicht: Geheimnisse und Git-Historie raushalten.
+.git
+.github
+.env
+*.env
+__pycache__
+*.pyc
+*.pyo
+README.md
+.venv
+venv
